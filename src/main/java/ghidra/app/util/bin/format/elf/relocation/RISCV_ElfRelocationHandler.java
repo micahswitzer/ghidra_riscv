@@ -68,6 +68,10 @@ public class RISCV_ElfRelocationHandler extends ElfRelocationHandler {
 		short value16 = 0;
 		byte value8 = 0;
 
+		// used for split instructions
+		long hi20;
+		long lo12;
+
 		switch (type) {
 		case RISCV_ElfRelocationConstants.R_RISCV_32:
 			// Runtime relocation word32 = S + A
@@ -149,8 +153,8 @@ public class RISCV_ElfRelocationHandler extends ElfRelocationHandler {
 
 		case RISCV_ElfRelocationConstants.R_RISCV_BRANCH:
 			// PC-relative branch (SB-Type)
-			markAsWarning(program, relocationAddress, "R_RISCV_BRANCH", symbolName, symbolIndex,
-					"TODO, needs support ", elfRelocationContext.getLog());
+			/* markAsWarning(program, relocationAddress, "R_RISCV_BRANCH", symbolName, symbolIndex,
+					"TODO, needs support ", elfRelocationContext.getLog()); */
 			break;
 
 		case RISCV_ElfRelocationConstants.R_RISCV_JAL:
@@ -162,8 +166,8 @@ public class RISCV_ElfRelocationHandler extends ElfRelocationHandler {
 		case RISCV_ElfRelocationConstants.R_RISCV_CALL:
 			// PC-relative call MACRO call,tail (auipc+jalr pair)
 			long sa = symbolValue + addend - offset;
-			long hi20 = (sa + 0x800) >> 12;
-			long lo12 = sa - (hi20 << 12);
+			hi20 = (sa + 0x800) >> 12;
+			lo12 = sa - (hi20 << 12);
 			value32 = memory.getInt(relocationAddress);
 			value32 |= (int)(hi20 & 0xfffff) << 12;
 			memory.setInt(relocationAddress, value32);
@@ -216,20 +220,28 @@ public class RISCV_ElfRelocationHandler extends ElfRelocationHandler {
 
 		case RISCV_ElfRelocationConstants.R_RISCV_HI20:
 			// Absolute address %hi(symbol) (U-Type)
-			markAsWarning(program, relocationAddress, "R_RISCV_HI20", symbolName, symbolIndex,
-					"TODO, needs support ", elfRelocationContext.getLog());
+			hi20 = (symbolValue + addend + 0x800) & 0xfffff000;
+			value32 = memory.getInt(relocationAddress);
+			value32 |= (int)hi20;
+			memory.setInt(relocationAddress, value32);
 			break;
 
 		case RISCV_ElfRelocationConstants.R_RISCV_LO12_I:
 			// Absolute address %lo(symbol) (I-Type)
-			markAsWarning(program, relocationAddress, "R_RISCV_LO12_I", symbolName, symbolIndex,
-					"TODO, needs support ", elfRelocationContext.getLog());
+			hi20 = (symbolValue + addend + 0x800) & 0xfffff000;
+			lo12 = (symbolValue + addend - hi20)  & 0x00000fff;
+			value32 = memory.getInt(relocationAddress);
+			value32 |= (int)(lo12 << 20);
+			memory.setInt(relocationAddress, value32);
 			break;
 
 		case RISCV_ElfRelocationConstants.R_RISCV_LO12_S:
 			// Absolute address %lo(symbol) (S-Type)
-			markAsWarning(program, relocationAddress, "R_RISCV_LO12_S", symbolName, symbolIndex,
-					"TODO, needs support ", elfRelocationContext.getLog());
+			hi20 = (symbolValue + addend + 0x800) & 0xfffff000;
+			lo12 = (symbolValue + addend - hi20)  & 0x00000fff;
+			value32 = memory.getInt(relocationAddress);
+			value32 |= (int)(((lo12 & 0xfe0) << 20) | ((lo12 & 0x01f) << 7));
+			memory.setInt(relocationAddress, value32);
 			break;
 
 		case RISCV_ElfRelocationConstants.R_RISCV_TPREL_HI20:
@@ -258,8 +270,6 @@ public class RISCV_ElfRelocationHandler extends ElfRelocationHandler {
 
 		case RISCV_ElfRelocationConstants.R_RISCV_ADD8:
 			// 8-bit label addition word8 = old + S + A
-			markAsWarning(program, relocationAddress, "R_RISCV_ADD8", symbolName, symbolIndex,
-					"TODO, needs support ", elfRelocationContext.getLog());
 			value8 = memory.getByte(relocationAddress);
 			value8 += (byte)symbolValue;
 			value8 += (byte)addend;
@@ -268,8 +278,6 @@ public class RISCV_ElfRelocationHandler extends ElfRelocationHandler {
 
 		case RISCV_ElfRelocationConstants.R_RISCV_ADD16:
 			// 16-bit label addition word16 = old + S + A
-			markAsWarning(program, relocationAddress, "R_RISCV_ADD16", symbolName, symbolIndex,
-					"TODO, needs support ", elfRelocationContext.getLog());
 			value16 = memory.getShort(relocationAddress);
 			value16 += (short)symbolValue;
 			value16 += (short)addend;
@@ -278,8 +286,6 @@ public class RISCV_ElfRelocationHandler extends ElfRelocationHandler {
 
 		case RISCV_ElfRelocationConstants.R_RISCV_ADD32:
 			// 32-bit label addition word32 = old + S + A
-			markAsWarning(program, relocationAddress, "R_RISCV_ADD32", symbolName, symbolIndex,
-					"TODO, needs support ", elfRelocationContext.getLog());
 			value32 = memory.getInt(relocationAddress);
 			value32 += (int)symbolValue;
 			value32 += (int)addend;
@@ -288,8 +294,6 @@ public class RISCV_ElfRelocationHandler extends ElfRelocationHandler {
 
 		case RISCV_ElfRelocationConstants.R_RISCV_ADD64:
 			// 64-bit label addition word64 = old + S + A
-			markAsWarning(program, relocationAddress, "R_RISCV_ADD64", symbolName, symbolIndex,
-					"TODO, needs support ", elfRelocationContext.getLog());
 			value64 = memory.getLong(relocationAddress);
 			value64 += symbolValue;
 			value64 += addend;
@@ -298,8 +302,6 @@ public class RISCV_ElfRelocationHandler extends ElfRelocationHandler {
 
 		case RISCV_ElfRelocationConstants.R_RISCV_SUB8:
 			// 8-bit label subtraction word8 = old - S - A
-			markAsWarning(program, relocationAddress, "R_RISCV_SUB8", symbolName, symbolIndex,
-					"TODO, needs support ", elfRelocationContext.getLog());
 			value8 = memory.getByte(relocationAddress);
 			value8 -= (byte)symbolValue;
 			value8 -= (byte)addend;
@@ -308,8 +310,6 @@ public class RISCV_ElfRelocationHandler extends ElfRelocationHandler {
 
 		case RISCV_ElfRelocationConstants.R_RISCV_SUB16:
 			// 16-bit label subtraction word16 = old - S - A
-			markAsWarning(program, relocationAddress, "R_RISCV_SUB16", symbolName, symbolIndex,
-					"TODO, needs support ", elfRelocationContext.getLog());
 			value16 = memory.getShort(relocationAddress);
 			value16 -= (short)symbolValue;
 			value16 -= (short)addend;
@@ -318,8 +318,6 @@ public class RISCV_ElfRelocationHandler extends ElfRelocationHandler {
 
 		case RISCV_ElfRelocationConstants.R_RISCV_SUB32:
 			// 32-bit label subtraction word32 = old - S - A
-			markAsWarning(program, relocationAddress, "R_RISCV_SUB32", symbolName, symbolIndex,
-					"TODO, needs support ", elfRelocationContext.getLog());
 			value32 = memory.getInt(relocationAddress);
 			value32 -= (int)symbolValue;
 			value32 -= (int)addend;
@@ -328,8 +326,6 @@ public class RISCV_ElfRelocationHandler extends ElfRelocationHandler {
 
 		case RISCV_ElfRelocationConstants.R_RISCV_SUB64:
 			// 64-bit label subtraction word64 = old - S - A
-			markAsWarning(program, relocationAddress, "R_RISCV_SUB64", symbolName, symbolIndex,
-					"TODO, needs support ", elfRelocationContext.getLog());
 			value64 = memory.getLong(relocationAddress);
 			value64 -= symbolValue;
 			value64 -= addend;
@@ -356,14 +352,29 @@ public class RISCV_ElfRelocationHandler extends ElfRelocationHandler {
 
 		case RISCV_ElfRelocationConstants.R_RISCV_RVC_BRANCH:
 			// PC-relative branch offset (CB-Type)
+			/*
+			long sa1 = symbolValue + addend - offset;
+			if (Math.abs(sa1) > 256) {
+				markAsError(program, relocationAddress, "R_RISCV_RVC_BRANCH", symbolName,
+						String.format("Relocation value \"%d\" out of range +/-256B", sa1),
+						elfRelocationContext.getLog());
+				break;
+			}
+			sa1 = (sa1 / 2) & 0xff;
+			long sa2 = ((sa1 & 0x80) << 4) | ((sa1 & 0x0c) << 7) | ((sa1 & 0x60) >> 1) |
+					((sa1 & 0x03) << 2) | ((sa1 & 0x10) >> 3);
+			value16 = memory.getShort(relocationAddress);
+			value16 |= (short)sa2;
+			memory.setShort(relocationAddress, value16);
 			markAsWarning(program, relocationAddress, "R_RISCV_RVC_BRANCH", symbolName, symbolIndex,
-					"TODO, needs support ", elfRelocationContext.getLog());
+					String.format("TODO, needs better support. mask = %04x", sa2), elfRelocationContext.getLog());
+			*/
 			break;
 
 		case RISCV_ElfRelocationConstants.R_RISCV_RVC_JUMP:
 			// PC-relative jump offset (CJ-Type)
-			markAsWarning(program, relocationAddress, "R_RISCV_RVC_BRANCH", symbolName, symbolIndex,
-					"TODO, needs support ", elfRelocationContext.getLog());
+			/* markAsWarning(program, relocationAddress, "R_RISCV_RVC_JUMP", symbolName, symbolIndex,
+					"TODO, needs support ", elfRelocationContext.getLog()); */
 			break;
 
 		case RISCV_ElfRelocationConstants.R_RISCV_RVC_LUI:
@@ -397,27 +408,45 @@ public class RISCV_ElfRelocationHandler extends ElfRelocationHandler {
 			break;
 
 		case RISCV_ElfRelocationConstants.R_RISCV_RELAX:
-			// Instruction pair can be relaxed 
+			// Instruction pair can be relaxed
+			// just opt to never relax it
+			/*
 			markAsWarning(program, relocationAddress, "R_RISCV_RELAX", symbolName, symbolIndex,
 					"TODO, needs support ", elfRelocationContext.getLog());
+			*/
 			break;
 
 		case RISCV_ElfRelocationConstants.R_RISCV_SUB6:
-			// Local label subtraction 
+			// Local label subtraction
+			byte tmp1 = memory.getByte(relocationAddress);
+			value8 = tmp1;
+			value8 -= symbolValue;
+			value8 -= addend;
+			tmp1 = (byte)((tmp1 & 0xc0) | (value8 & 0x3f));
+			memory.setByte(relocationAddress, tmp1);
 			markAsWarning(program, relocationAddress, "R_RISCV_SUB6", symbolName, symbolIndex,
-					"TODO, needs support ", elfRelocationContext.getLog());
+					"Unverified relocation, may be incorrect ", elfRelocationContext.getLog());
 			break;
 
 		case RISCV_ElfRelocationConstants.R_RISCV_SET6:
-			// Local label subtraction 
+			// Local label subtraction
+			byte tmp2 = memory.getByte(relocationAddress);
+			value8 = tmp2;
+			value8 += symbolValue;
+			value8 += addend;
+			tmp2 = (byte)((tmp2 & 0xc0) | (value8 & 0x3f));
+			memory.setByte(relocationAddress, tmp2);
 			markAsWarning(program, relocationAddress, "R_RISCV_SET6", symbolName, symbolIndex,
-					"TODO, needs support ", elfRelocationContext.getLog());
+					"Unverified relocation, may be incorrect ", elfRelocationContext.getLog());
 			break;
 
 		case RISCV_ElfRelocationConstants.R_RISCV_SET8:
-			// Local label subtraction 
+			// Local label subtraction
+			value8 += symbolValue;
+			value8 += addend;
+			memory.setByte(relocationAddress, value8);
 			markAsWarning(program, relocationAddress, "R_RISCV_SET8", symbolName, symbolIndex,
-					"TODO, needs support ", elfRelocationContext.getLog());
+					"Unverified relocation, may be incorrect ", elfRelocationContext.getLog());
 			break;
 
 		case RISCV_ElfRelocationConstants.R_RISCV_SET16:
